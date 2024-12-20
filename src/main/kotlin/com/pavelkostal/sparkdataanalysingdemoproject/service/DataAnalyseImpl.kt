@@ -16,30 +16,25 @@ class DataAnalyseImpl : DataAnalyse {
         // Convert the uploaded CSV file to a list of strings (one string for each line)
         val csvData = file.inputStream.bufferedReader().readLines()
 
-        val spark = SparkSession.builder() // Run Apache Spark locally
-            .appName("Kotlin Spark Example")
-            .master("local[*]") // For local development without master and worker node running in Docker
-            .getOrCreate()
-
-        val javaSparkContext = JavaSparkContext(spark.sparkContext())
-
         // Check if CSV data is empty or invalid
         if (csvData.isEmpty()) {
             return "Uploaded CSV is empty."
         }
 
-        val header = csvData.first() // First row is the header
+//        val header = csvData.first() // First row is the header
         val data = csvData.drop(1)   // Exclude the header row
+
+        val spark = getSparkSession()
 
         // Check if data contains rows
         if (data.isEmpty()) {
             return "No data rows present in the CSV."
         }
 
+        val javaSparkContext = JavaSparkContext(spark.sparkContext())
+
         // Define schema (assuming YEAR is stored as IntegerType)
-        val schema = StructType(arrayOf(
-            DataTypes.createStructField("YEAR", DataTypes.IntegerType, false)
-        ))
+        val schema = getSchema()
 
         // Preprocess rows to handle invalid YEAR values
         val rows = data.mapNotNull { line ->
@@ -76,4 +71,23 @@ class DataAnalyseImpl : DataAnalyse {
 
         return "Number of rows: ${rows.size}\nAverage year: $averageYear"
     }
+
+    private fun getSparkSession(): SparkSession {
+        val spark = SparkSession.builder() // Run Apache Spark locally
+            .appName("Kotlin Spark Example")
+            .master("local[*]") // For local development without master and worker node running in Docker
+            .getOrCreate()
+        return spark
+    }
+
+    private fun getSchema(): StructType {
+        val schema = StructType(
+            arrayOf(
+                DataTypes.createStructField("YEAR", DataTypes.IntegerType, false)
+            )
+        )
+        return schema
+    }
+
+
 }
