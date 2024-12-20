@@ -1,0 +1,73 @@
+services:
+#  hadoop-master:
+#    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+#    container_name: hadoop-master
+#    environment:
+#      - CLUSTER_NAME=hadoop-cluster
+#    ports:
+#      - "50070:50070" # HDFS Web UI
+#      - "9000:9000"   # HDFS Namenode RPC
+#    volumes:
+#      - hadoop-master-data:/hadoop/dfs/name
+#
+#  hadoop-worker:
+#    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+#    container_name: hadoop-worker
+#    environment:
+#      - CLUSTER_NAME=hadoop-cluster
+#      - NAMENODE_HOST=hadoop-master
+#    ports:
+#      - "50075:50075" # Datanode Web UI
+#    depends_on:
+#      - hadoop-master
+#    volumes:
+#      - hadoop-worker-data:/hadoop/dfs/data
+
+  spark-master:
+    image: bitnami/spark:latest
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_WEBUI_PORT=8090
+      - SPARK_WORKER_MEMORY=1g
+#      - HADOOP_HOME=/opt/hadoop # Added HADOOP_HOME path
+#      - HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
+    ports:
+      - "7077:7077"          # Spark Master Port
+      - "8090:8090"          # Expose Master Web UI
+    depends_on:
+      - hadoop-master # Ensure Hadoop Master is up before Spark Master starts
+    volumes:
+      - /path/to/local/hadoop:/opt/hadoop # Map local Hadoop installation to container
+
+  spark-worker:
+    image: bitnami/spark:latest
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=1g
+#      - HADOOP_HOME=/opt/hadoop # Added HADOOP_HOME path
+#      - HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
+    depends_on:
+      - spark-master # Wait for Spark Master
+      - hadoop-master
+    links:
+      - hadoop-master
+    volumes:
+      - /path/to/local/hadoop:/opt/hadoop # Map local Hadoop installation to container
+
+  spark-history:
+    image: bitnami/spark:latest
+    container_name: spark-history
+    environment:
+      - SPARK_MODE=history-server
+      - SPARK_HISTORY_SERVER_WEBUI_PORT=18080
+    ports:
+      - "18080:18080" # Spark History Server Web UI
+    depends_on:
+      - spark-master
+
+volumes:
+  hadoop-master-data:
+  hadoop-worker-data:
