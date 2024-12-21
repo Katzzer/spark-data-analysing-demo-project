@@ -67,37 +67,45 @@ class DataAnalyseImpl() : DataAnalyse {
         val rowRDD = javaSparkContext.parallelize(rows)
 
         val dataFrame = spark.createDataFrame(rowRDD, schema)
-        val cleanedDataFrame = cleanedDataFrame(dataFrame)
+        val cleanedDataFrame = cleanDataFrame(dataFrame)
 
         val filteredDataFrame = cleanedDataFrame.filter(col("Data_Value").isNotNull)
 
-        val maleCount = filteredDataFrame
+        val maleGenderCount = filteredDataFrame
             .filter(col(TobaccoUseColumn.GENDER.columnName).equalTo("Male"))
             .count()
 
-        val femaleCount = filteredDataFrame
+        val femaleGenderCount = filteredDataFrame
             .filter(col(TobaccoUseColumn.GENDER.columnName).equalTo("Female"))
             .count()
 
-        val overallCount = filteredDataFrame
+        val overallGenderCount = filteredDataFrame
             .filter(col(TobaccoUseColumn.GENDER.columnName).equalTo("Overall"))
             .count()
-
-
 
         val maxState = filteredDataFrame
             .groupBy(col(TobaccoUseColumn.LOCATION_DESC.columnName))
             .avg(TobaccoUseColumn.DATA_VALUE.columnName)
             .orderBy(col("avg(${TobaccoUseColumn.DATA_VALUE.columnName})").desc())
 
-        // Collect the first 10 rows
-        val topStates = maxState.limit(10).collect() as Array<Row>
+        // Collect the first 10 rows from state
+        val topTenStates = maxState.limit(10).collect() as Array<Row>
 
-        val topStatesString = topStates.joinToString(separator = "\n____") { row: Row ->
-            "${row.getString(0)}: %.1f".format(row.getDouble(1))
+        val topTenStatesString = topTenStates.joinToString(separator = "\n____") { row: Row ->
+            "${row.getString(0)}: %.1f%%".format(row.getDouble(1))
         }
 
-        return returnResultFormatted(rows, maleCount, femaleCount, overallCount, topStatesString)
+        val topByAge = filteredDataFrame
+            .groupBy(col(TobaccoUseColumn.AGE.columnName))
+            .avg(TobaccoUseColumn.DATA_VALUE.columnName)
+            .orderBy(col("avg(${TobaccoUseColumn.DATA_VALUE.columnName})").desc())
+
+        val topTenByAge = topByAge.limit(10).collect() as Array<Row>
+        val topTenByAgeString = topTenByAge.joinToString(separator = "\n____") { row: Row ->
+            "${row.getString(0)}: %.1f%%".format(row.getDouble(1))
+        }
+
+        return returnResultFormatted(rows, maleGenderCount, femaleGenderCount, overallGenderCount, topTenStatesString, topTenByAgeString)
     }
 
     private fun returnResultFormatted(
@@ -105,7 +113,8 @@ class DataAnalyseImpl() : DataAnalyse {
         maleCount: Long,
         femaleCount: Long,
         overallCount: Long,
-        topStatesString: String
+        topStatesString: String,
+        topTenByAgeString: String
     ) = """
 Number of rows in data set: ${rows.size}
 Male count: $maleCount
@@ -114,6 +123,9 @@ Overall count: $overallCount
     
 Top 10 States by Average Data Value:
 $topStatesString
+
+Top 10 by age
+$topTenByAgeString
     """.trimIndent()
 
     private fun getSparkSession(): SparkSession {
@@ -162,7 +174,7 @@ $topStatesString
         )
     }
 
-    fun cleanedDataFrame(dataFrame: Dataset<Row>): Dataset<Row> {
+    private fun cleanDataFrame(dataFrame: Dataset<Row>): Dataset<Row> {
         return dataFrame.withColumn(
             "Data_Value",
             `when`(
