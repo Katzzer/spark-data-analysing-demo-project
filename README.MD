@@ -9,6 +9,9 @@
 - Spark is programmed in Scala, so not all works fine with Spring Boot 3+ version (I was not able to  run application and process data)
 - To run this application add to start to VM Option `--add-opens java.base/sun.nio.ch=ALL-UNNAMED`
 
+## Notes
+- The data will need to be cleaned because there are some columns with double values, but an error is thrown when the column is specified as `DataTypes.Double`.
+
 ### How to analyse data with Apache Spark
 
 1. Start this application
