@@ -50,10 +50,9 @@ class DataAnalyseImpl() : DataAnalyse {
 
         val javaSparkContext = JavaSparkContext(spark.sparkContext())
 
-        // Define schema (assuming YEAR is stored as IntegerType)
         val schema = getSchema()
 
-        // Preprocess rows to handle invalid YEAR values
+        // Preprocess rows
         val rows = data.map { line ->
             val split = line.split(",").map { it.trim() }
             RowFactory.create(*split.toTypedArray()) // Convert `split` list to varargs for RowFactory
@@ -65,68 +64,29 @@ class DataAnalyseImpl() : DataAnalyse {
         }
 
         val rowRDD = javaSparkContext.parallelize(rows)
-
         val dataFrame = spark.createDataFrame(rowRDD, schema)
         val cleanedDataFrame = cleanDataFrame(dataFrame)
-
         val filteredDataFrame = cleanedDataFrame.filter(col("Data_Value").isNotNull)
 
-        val maleGenderCount = filteredDataFrame
-            .filter(col(TobaccoUseColumn.GENDER.columnName).equalTo("Male"))
-            .count()
+        val maleGenderCount = getCountByGender(filteredDataFrame,"Male")
+        val femaleGenderCount = getCountByGender(filteredDataFrame,"Male")
+        val overallGenderCount = getCountByGender(filteredDataFrame,"Overall")
 
-        val femaleGenderCount = filteredDataFrame
-            .filter(col(TobaccoUseColumn.GENDER.columnName).equalTo("Female"))
-            .count()
+        val sortedByStatePercentageUsage = getPercentageUsageSortedByState(filteredDataFrame)
+        val topTenByStatesPercentageUsage = getTopTen(sortedByStatePercentageUsage)
 
-        val overallGenderCount = filteredDataFrame
-            .filter(col(TobaccoUseColumn.GENDER.columnName).equalTo("Overall"))
-            .count()
+        val sortedByAgePercentageUsage = getPercentageUsageSortedByAge(filteredDataFrame)
+        val topTenByAgePercentageUsage = getTopTen(sortedByAgePercentageUsage)
 
-        val maxState = filteredDataFrame
-            .groupBy(col(TobaccoUseColumn.LOCATION_DESC.columnName))
-            .avg(TobaccoUseColumn.DATA_VALUE.columnName)
-            .orderBy(col("avg(${TobaccoUseColumn.DATA_VALUE.columnName})").desc())
-
-        // Collect the first 10 rows from state
-        val topTenStates = maxState.limit(10).collect() as Array<Row>
-
-        val topTenStatesString = topTenStates.joinToString(separator = "\n____") { row: Row ->
-            "${row.getString(0)}: %.1f%%".format(row.getDouble(1))
-        }
-
-        val topByAge = filteredDataFrame
-            .groupBy(col(TobaccoUseColumn.AGE.columnName))
-            .avg(TobaccoUseColumn.DATA_VALUE.columnName)
-            .orderBy(col("avg(${TobaccoUseColumn.DATA_VALUE.columnName})").desc())
-
-        val topTenByAge = topByAge.limit(10).collect() as Array<Row>
-        val topTenByAgeString = topTenByAge.joinToString(separator = "\n____") { row: Row ->
-            "${row.getString(0)}: %.1f%%".format(row.getDouble(1))
-        }
-
-        return returnResultFormatted(rows, maleGenderCount, femaleGenderCount, overallGenderCount, topTenStatesString, topTenByAgeString)
+        return returnResultFormatted(rows, maleGenderCount, femaleGenderCount, overallGenderCount, topTenByStatesPercentageUsage, topTenByAgePercentageUsage)
     }
 
-    private fun returnResultFormatted(
-        rows: List<Row>,
-        maleCount: Long,
-        femaleCount: Long,
-        overallCount: Long,
-        topStatesString: String,
-        topTenByAgeString: String
-    ) = """
-Number of rows in data set: ${rows.size}
-Male count: $maleCount
-Female count: $femaleCount
-Overall count: $overallCount
-    
-Top 10 States by Average Data Value:
-$topStatesString
-
-Top 10 by age
-$topTenByAgeString
-    """.trimIndent()
+    private fun getCountByGender(filteredDataFrame: Dataset<Row>, gender:String): Long {
+        val maleGenderCount = filteredDataFrame
+            .filter(col(TobaccoUseColumn.GENDER.columnName).equalTo(gender))
+            .count()
+        return maleGenderCount
+    }
 
     private fun getSparkSession(): SparkSession {
         return SparkSession.builder()
@@ -184,4 +144,49 @@ $topTenByAgeString
         )
     }
 
+    private fun getPercentageUsageSortedByState(filteredDataFrame: Dataset<Row>): Dataset<Row> {
+        val sortedByStatePercentageUsage = filteredDataFrame
+            .filter(col(TobaccoUseColumn.LOCATION_DESC.columnName).notEqual("National Median (States and DC)"))
+            .groupBy(col(TobaccoUseColumn.LOCATION_DESC.columnName))
+            .avg(TobaccoUseColumn.DATA_VALUE.columnName)
+            .orderBy(col("avg(${TobaccoUseColumn.DATA_VALUE.columnName})").desc())
+        return sortedByStatePercentageUsage
+    }
+
+    private fun getPercentageUsageSortedByAge(filteredDataFrame: Dataset<Row>): Dataset<Row> {
+        val sortedByAgePercentageUsage = filteredDataFrame
+            .filter(col(TobaccoUseColumn.AGE.columnName).notEqual("All Ages"))
+            .groupBy(col(TobaccoUseColumn.AGE.columnName))
+            .avg(TobaccoUseColumn.DATA_VALUE.columnName)
+            .orderBy(col("avg(${TobaccoUseColumn.DATA_VALUE.columnName})").desc())
+        return sortedByAgePercentageUsage
+    }
+
+    private fun getTopTen(data: Dataset<Row>): String {
+        val topTenByAge = data.limit(10).collect() as Array<Row>
+        val topTenByAgeString = "-" + topTenByAge.joinToString(separator = "\n-") { row: Row ->
+            "${row.getString(0)}: %.1f%%".format(row.getDouble(1))
+        }
+        return topTenByAgeString
+    }
+
+    private fun returnResultFormatted(
+        rows: List<Row>,
+        maleCount: Long,
+        femaleCount: Long,
+        overallCount: Long,
+        topStatesString: String,
+        topTenByAgeString: String
+    ) = """
+Number of rows in data set: ${rows.size}
+Male gender count: $maleCount
+Female gender count: $femaleCount
+Overall gender count: $overallCount
+    
+Top 10 States by Average Data Value:
+$topStatesString
+
+Top 10 by age
+$topTenByAgeString
+    """.trimIndent()
 }
