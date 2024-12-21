@@ -4,5 +4,7 @@ import org.springframework.web.multipart.MultipartFile
 
 interface DataAnalyse {
 
-    fun analyzeDataFromCsv(file: MultipartFile):String
+    fun analyzeDataFromCsvFromInternalFile():String
+
+    fun analyzeDataFromCsvFromExternalFile(file: MultipartFile):String
 }

@@ -19,8 +19,9 @@
     - Go to `Body` select `form-data`, in `key` set name to `file` and type select `file` and in `Value` select file `csvData.csv` and add file
       that is in this project in `/data` directory
 3. Send request
-4. Optional: Run `docker-compose up` to run master and worked node for Apache Spark with Hadoop
-5. Set configuration
+4. Or simply create GET request to `localhost:8080/api/v1/analysis/analyze-data`, it will use csv file that is inside this application
+5. Optional: Run `docker-compose up` to run master and worked node for Apache Spark with Hadoop
+6. Set configuration
 ```kotlin
 val spark = SparkSession.builder()
             .appName("Kotlin Spark Application")

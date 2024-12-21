@@ -11,12 +11,27 @@ import org.apache.spark.sql.types.DataTypes
 import org.apache.spark.sql.types.StructType
 import org.springframework.stereotype.Component
 import org.springframework.web.multipart.MultipartFile
+import java.io.ByteArrayInputStream
+import java.io.File
+import java.nio.file.Files
 
 @Component
 class DataAnalyseImpl() : DataAnalyse {
-    override fun analyzeDataFromCsv(file: MultipartFile): String {
+    override fun analyzeDataFromCsvFromInternalFile(): String {
+        val filePath = File("Data/Behavioral_Risk_Factor_Data__Tobacco_Use__2011_to_present__20241221.csv")
+
+        val file = Files.readAllBytes(filePath.toPath())
+
+        return analyzeDataFromCsv(file)
+    }
+
+    override fun analyzeDataFromCsvFromExternalFile(file: MultipartFile):String {
+        return analyzeDataFromCsv(file.bytes)
+    }
+
+    private fun analyzeDataFromCsv(file: ByteArray): String {
         // Convert the uploaded CSV file to a list of strings (one string for each line)
-        val csvData = file.inputStream.bufferedReader().readLines()
+        val csvData = ByteArrayInputStream(file).bufferedReader().readLines()
 
         // Check if CSV data is empty or invalid
         if (csvData.isEmpty()) {
