@@ -3,7 +3,7 @@ package com.pavelkostal.sparkdataanalysingdemoproject.model
 import org.apache.spark.sql.types.DataType
 import org.apache.spark.sql.types.DataTypes
 
-enum class SparkColumn(val columnName: String, val description: String, val apiFieldName: String, val dataType: DataType) {
+enum class TobaccoUseColumn(val columnName: String, val description: String, val apiFieldName: String, val dataType: DataType) {
     YEAR("YEAR", "Year", "year", DataTypes.StringType),
     DATA_VALUE_TYPE("Data_Value_Type", "Type of data (yes/no, percentage, dollar, etc)", "data_value_type", DataTypes.StringType),
     DATA_VALUE("Data_Value", "Value of the data", "data_value", DataTypes.DoubleType),
@@ -37,7 +37,7 @@ enum class SparkColumn(val columnName: String, val description: String, val apiF
     DATA_VALUE_UNIT("Data_Value_Unit", "Indicator of the type of data value ($, %, etc)", "data_value_unit", DataTypes.StringType);
 
     companion object {
-        fun fromColumnName(columnName: String): SparkColumn? {
+        fun fromColumnName(columnName: String): TobaccoUseColumn? {
             return values().find { it.columnName == columnName }
         }
     }

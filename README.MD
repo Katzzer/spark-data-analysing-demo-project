@@ -7,6 +7,7 @@
 ## Basic information
 - For better compatibility is used Spring Boot "2.7.5" (with version 3+ there is a lot of problems, for example logging, data processing etc.)
 - Spark is programmed in Scala, so not all works fine with Spring Boot 3+ version (I was not able to  run application and process data)
+- To run this application add to start to VM Option `--add-opens java.base/sun.nio.ch=ALL-UNNAMED`
 
 ### How to analyse data with Apache Spark
 
@@ -28,6 +29,7 @@ val spark = SparkSession.builder()
 ### Some more information
 - It will start `Apache Spark` on this local PC
 - It is possible to configure Apache Spark locally, to use Master and Worker Node and also use Hadoop for data
+- Version without Hadoop
 ```kotlin
         val spark = SparkSession.builder() // only Spark
             .appName("Kotlin Spark Application")

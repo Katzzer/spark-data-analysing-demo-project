@@ -10,11 +10,6 @@ import org.springframework.web.multipart.MultipartFile
 @RequestMapping("api/v1/analysis")
 class PageController (val dataAnalyse: DataAnalyse){
 
-    @GetMapping("/demo")
-    fun demo(): String {
-        return "demo all works"
-    }
-
     @PostMapping("/analyze-data")
     fun analyzeDataFromCsv(@RequestParam("file") file: MultipartFile): String {
         if (file.isEmpty) {
