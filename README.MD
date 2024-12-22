@@ -12,6 +12,7 @@
 - For better compatibility is used Spring Boot version "2.7.5" (with version 3+ there is a lot of problems, for example logging, data processing etc.)
 - Spark is programmed in Scala, so not all works fine with Spring Boot 3+ version (I was not able to run the application and process data)
 - All data are imported to Excel so they could be there checked, Excel file is also in `/data` directory
+- This application cannot run on Heroku Eco Dyno, because it needs more memory that is available on this plan
 
 ## Notes
 - The data will need to be cleaned because there are some columns with double values, but an error is thrown when the column is specified as `DataTypes.Double`.
