@@ -83,12 +83,15 @@ class DataAnalyseImpl() : DataAnalyse {
 
     private fun getSparkSession(): SparkSession {
         return SparkSession.builder()
-            .appName("DataAnalyse")
-            .master("local[*]") // Use all available cores on the local machine
-            .config("spark.driver.memory", "300m")
-            .config("spark.executor.memory", "300m")
-            .config("spark.executor.instances", "1")
-            .config("spark.driver.host", "127.0.0.1") // Ensure correct driver host
+            .appName("LowMemorySparkApp")
+            .master("local[*]")
+            .config("spark.executor.memory", "384m") // 384 MB for executors
+            .config("spark.driver.memory", "384m")   // 384 MB for driver
+            .config("spark.executor.memoryOverhead", "128m") // Overhead memory
+            .config("spark.sql.shuffle.partitions", "2") // Reduced shuffle partitions
+            .config("spark.default.parallelism", "2") // Reduce task parallelism
+            .config("spark.memory.offHeap.enabled", "true") // Use off-heap memory
+            .config("spark.memory.offHeap.size", "128m")    // Configure off-heap space
             .getOrCreate()
     }
 
