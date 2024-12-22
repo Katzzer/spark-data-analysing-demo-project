@@ -85,7 +85,9 @@ class DataAnalyseImpl() : DataAnalyse {
         return SparkSession.builder()
             .appName("DataAnalyse")
             .master("local[*]") // Use all available cores on the local machine
-            .config("spark.driver.memory", "256m")
+            .config("spark.driver.memory", "300m")
+            .config("spark.executor.memory", "300m")
+            .config("spark.executor.instances", "1")
             .config("spark.driver.host", "127.0.0.1") // Ensure correct driver host
             .getOrCreate()
     }
