@@ -38,18 +38,13 @@ class DataAnalyseImpl() : DataAnalyse {
             return "Uploaded CSV is empty."
         }
 
-//        val header = csvData.first() // First row is the header
         val data = csvData.drop(1)   // Exclude the header row
-
         val spark = getSparkSession()
-
-        // Check if data contains rows
         if (data.isEmpty()) {
             return "No data rows present in the CSV."
         }
 
         val javaSparkContext = JavaSparkContext(spark.sparkContext())
-
         val schema = getSchema()
 
         // Preprocess rows
@@ -58,7 +53,6 @@ class DataAnalyseImpl() : DataAnalyse {
             RowFactory.create(*split.toTypedArray()) // Convert `split` list to varargs for RowFactory
         }
 
-        // Skip if rows are empty after preprocessing
         if (rows.isEmpty()) {
             return "No valid data rows present in the CSV."
         }
@@ -66,16 +60,15 @@ class DataAnalyseImpl() : DataAnalyse {
         val rowRDD = javaSparkContext.parallelize(rows)
         val dataFrame = spark.createDataFrame(rowRDD, schema)
         val cleanedDataFrame = cleanDataFrame(dataFrame)
-        val filteredDataFrame = cleanedDataFrame.filter(col("Data_Value").isNotNull)
 
-        val maleGenderCount = getCountByGender(filteredDataFrame,"Male")
-        val femaleGenderCount = getCountByGender(filteredDataFrame,"Male")
-        val overallGenderCount = getCountByGender(filteredDataFrame,"Overall")
+        val maleGenderCount = getCountByGender(dataFrame,"Male")
+        val femaleGenderCount = getCountByGender(dataFrame,"Female")
+        val overallGenderCount = getCountByGender(dataFrame,"Overall")
 
-        val sortedByStatePercentageUsage = getPercentageUsageSortedByState(filteredDataFrame)
+        val sortedByStatePercentageUsage = getPercentageUsageSortedByState(cleanedDataFrame)
         val topTenByStatesPercentageUsage = getTopTen(sortedByStatePercentageUsage)
 
-        val sortedByAgePercentageUsage = getPercentageUsageSortedByAge(filteredDataFrame)
+        val sortedByAgePercentageUsage = getPercentageUsageSortedByAge(cleanedDataFrame)
         val topTenByAgePercentageUsage = getTopTen(sortedByAgePercentageUsage)
 
         return returnResultFormatted(rows, maleGenderCount, femaleGenderCount, overallGenderCount, topTenByStatesPercentageUsage, topTenByAgePercentageUsage)
@@ -135,37 +128,88 @@ class DataAnalyseImpl() : DataAnalyse {
     }
 
     private fun cleanDataFrame(dataFrame: Dataset<Row>): Dataset<Row> {
-        return dataFrame.withColumn(
-            "Data_Value",
-            `when`(
-                trim(col("Data_Value")).cast("double").isNotNull,  // Condition: value is not null after trimming and casting
-                trim(col("Data_Value")).cast("double")            // If true, cast the trimmed value to double
-            ).otherwise(null)                                    // If false, replace with null
-        )
+        return dataFrame
+            .withColumn(
+                TobaccoUseColumn.DATA_VALUE.columnName,
+                `when`(
+                    trim(col(TobaccoUseColumn.DATA_VALUE.columnName))
+                        .cast("double")
+                        .isNotNull,
+                    trim(col(TobaccoUseColumn.DATA_VALUE.columnName))
+                        .cast("double")
+                ).otherwise(null)
+            )
+            .withColumn(
+                TobaccoUseColumn.SAMPLE_SIZE.columnName,
+                `when`(
+                    trim(col(TobaccoUseColumn.SAMPLE_SIZE.columnName))
+                        .cast("double")
+                        .isNotNull,
+                    trim(col(TobaccoUseColumn.SAMPLE_SIZE.columnName))
+                        .cast("double")
+                ).otherwise(null)
+            )
+            .filter(col(TobaccoUseColumn.DATA_VALUE.columnName).isNotNull)
+            .filter(col(TobaccoUseColumn.SAMPLE_SIZE.columnName).isNotNull)
+            .filter(col(TobaccoUseColumn.AGE.columnName).notEqual("All Ages"))
     }
 
     private fun getPercentageUsageSortedByState(filteredDataFrame: Dataset<Row>): Dataset<Row> {
+
+        // Debug unique LocationDesc values
+        filteredDataFrame.select(
+            col(TobaccoUseColumn.LOCATION_DESC.columnName),
+            col(TobaccoUseColumn.DATA_VALUE.columnName),
+            col(TobaccoUseColumn.SAMPLE_SIZE.columnName)
+        ).distinct().show()
+
+        // Group by LocationDesc and calculate weighted average
         val sortedByStatePercentageUsage = filteredDataFrame
-            .filter(col(TobaccoUseColumn.LOCATION_DESC.columnName).notEqual("National Median (States and DC)"))
             .groupBy(col(TobaccoUseColumn.LOCATION_DESC.columnName))
-            .avg(TobaccoUseColumn.DATA_VALUE.columnName)
-            .orderBy(col("avg(${TobaccoUseColumn.DATA_VALUE.columnName})").desc())
+            .agg(
+                sum(
+                    col(TobaccoUseColumn.DATA_VALUE.columnName)
+                        .divide(100) // Convert percentage to decimal
+                        .multiply(col(TobaccoUseColumn.SAMPLE_SIZE.columnName))
+                ).divide(
+                    sum(col(TobaccoUseColumn.SAMPLE_SIZE.columnName))
+                ).alias("Weighted_Average_Tobacco_Use")
+            )
+            .orderBy(desc("Weighted_Average_Tobacco_Use"))
+
         return sortedByStatePercentageUsage
     }
 
     private fun getPercentageUsageSortedByAge(filteredDataFrame: Dataset<Row>): Dataset<Row> {
+
+        // Debug unique AGE values
+        filteredDataFrame.select(
+            col(TobaccoUseColumn.AGE.columnName),
+            col(TobaccoUseColumn.DATA_VALUE.columnName),
+            col(TobaccoUseColumn.SAMPLE_SIZE.columnName)
+        ).distinct().show()
+
+        // Group by AGE and calculate weighted average
         val sortedByAgePercentageUsage = filteredDataFrame
-            .filter(col(TobaccoUseColumn.AGE.columnName).notEqual("All Ages"))
             .groupBy(col(TobaccoUseColumn.AGE.columnName))
-            .avg(TobaccoUseColumn.DATA_VALUE.columnName)
-            .orderBy(col("avg(${TobaccoUseColumn.DATA_VALUE.columnName})").desc())
+            .agg(
+                sum(col(TobaccoUseColumn.DATA_VALUE.columnName)
+                    .divide(100) // Convert percentage to decimal
+                    .multiply(col(TobaccoUseColumn.SAMPLE_SIZE.columnName)))
+                    .divide(
+                        sum(col(TobaccoUseColumn.SAMPLE_SIZE.columnName))
+                    )
+                    .alias("Weighted_Average_Tobacco_Use")
+            )
+            .orderBy(desc("Weighted_Average_Tobacco_Use"))
+
         return sortedByAgePercentageUsage
     }
 
     private fun getTopTen(data: Dataset<Row>): String {
         val topTenByAge = data.limit(10).collect() as Array<Row>
-        val topTenByAgeString = "-" + topTenByAge.joinToString(separator = "\n-") { row: Row ->
-            "${row.getString(0)}: %.1f%%".format(row.getDouble(1))
+        val topTenByAgeString = "- " + topTenByAge.joinToString(separator = "\n- ") { row: Row ->
+            "${row.getString(0)}: %.1f%%".format(row.getDouble(1) * 100) // Multiply value by 100
         }
         return topTenByAgeString
     }
@@ -179,9 +223,9 @@ class DataAnalyseImpl() : DataAnalyse {
         topTenByAgeString: String
     ) = """
 Number of rows in data set: ${rows.size}
-Male gender count: $maleCount
-Female gender count: $femaleCount
-Overall gender count: $overallCount
+- Male gender count: $maleCount
+- Female gender count: $femaleCount
+- Overall gender count: $overallCount
     
 Top 10 States by Average Data Value:
 $topStatesString
