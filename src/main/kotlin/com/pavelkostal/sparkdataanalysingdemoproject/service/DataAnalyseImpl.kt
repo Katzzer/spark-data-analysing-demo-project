@@ -151,7 +151,7 @@ class DataAnalyseImpl() : DataAnalyse {
             )
             .filter(col(TobaccoUseColumn.DATA_VALUE.columnName).isNotNull)
             .filter(col(TobaccoUseColumn.SAMPLE_SIZE.columnName).isNotNull)
-            .filter(col(TobaccoUseColumn.AGE.columnName).notEqual("All Ages"))
+//            .filter(col(TobaccoUseColumn.AGE.columnName).notEqual("All Ages"))
     }
 
     private fun getPercentageUsageSortedByState(filteredDataFrame: Dataset<Row>): Dataset<Row> {
@@ -209,7 +209,7 @@ class DataAnalyseImpl() : DataAnalyse {
     private fun getTopTen(data: Dataset<Row>): String {
         val topTenByAge = data.limit(10).collect() as Array<Row>
         val topTenByAgeString = "- " + topTenByAge.joinToString(separator = "\n- ") { row: Row ->
-            "${row.getString(0)}: %.1f%%".format(row.getDouble(1) * 100) // Multiply value by 100
+            "${row.getString(0)}: %.1f%%".format(row.getDouble(1) * 100)
         }
         return topTenByAgeString
     }
@@ -227,10 +227,10 @@ Number of rows in data set: ${rows.size}
 - Female gender count: $femaleCount
 - Overall gender count: $overallCount
     
-Top 10 States by Average Data Value:
+Top 10 States by Average Percentage of Usage
 $topStatesString
 
-Top 10 by age
+Overview of Percentage Usage by Age:
 $topTenByAgeString
     """.trimIndent()
 }
